@@ -81,10 +81,11 @@ class ContainerInspector:
             if container_name:
                 hostnames.add(container_name)
 
-            # 2. 容器配置中的 Hostname 字段
+            # 2. 容器配置中的 Hostname 字段（排除容器 ID）
             config = container.attrs.get('Config', {})
             hostname = config.get('Hostname')
-            if hostname:
+            # 只添加非容器 ID 的 hostname（Docker 默认使用容器 ID 短格式作为 hostname）
+            if hostname and hostname != container.id[:12]:
                 hostnames.add(hostname)
 
             # 3. 网络别名（来自所有网络）
