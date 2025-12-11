@@ -24,12 +24,12 @@ class HostEntry:
         """
         转换为 hosts 文件行格式
 
-        格式: <IP>\t<主机名>\t# docker-hoster: <容器名>
+        格式: <IP>\t<主机名>
 
         返回:
             格式化的 hosts 文件行
         """
-        return f"{self.ip_address}\t{self.hostname}\t# docker-hoster: {self.container_name}"
+        return f"{self.ip_address}\t{self.hostname}"
 
     def __str__(self) -> str:
         return f"{self.hostname} -> {self.ip_address} ({self.container_name})"

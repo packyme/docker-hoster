@@ -18,7 +18,8 @@ class HostsFileManager:
     使用直接写入方式以支持 bind mount 的文件。
     """
 
-    MARKER = "# docker-hoster:"
+    BEGIN_MARKER = "# Begin Docker Hoster"
+    END_MARKER = "# End Docker Hoster"
 
     def __init__(self, hosts_path: str, logger: logging.Logger):
         """
@@ -40,6 +41,8 @@ class HostsFileManager:
             非 docker-hoster 管理的 hosts 文件行列表
         """
         existing_lines = []
+        inside_docker_hoster_block = False
+
         try:
             if not self.hosts_path.exists():
                 self.logger.warning(f"Hosts 文件不存在: {self.hosts_path}")
@@ -47,9 +50,24 @@ class HostsFileManager:
 
             with open(self.hosts_path, 'r') as f:
                 for line in f:
-                    # 保留不包含 docker-hoster 标记的行
-                    if self.MARKER not in line:
-                        existing_lines.append(line.rstrip('\n'))
+                    stripped = line.rstrip('\n')
+
+                    # 检查是否进入 docker-hoster 管理区域
+                    if stripped == self.BEGIN_MARKER:
+                        inside_docker_hoster_block = True
+                        continue
+
+                    # 检查是否离开 docker-hoster 管理区域
+                    if stripped == self.END_MARKER:
+                        inside_docker_hoster_block = False
+                        continue
+
+                    # 如果在管理区域内，跳过该行
+                    if inside_docker_hoster_block:
+                        continue
+
+                    # 保留非 docker-hoster 管理的行
+                    existing_lines.append(stripped)
 
         except PermissionError:
             self.logger.error(f"读取 hosts 文件权限被拒绝: {self.hosts_path}")
@@ -80,9 +98,10 @@ class HostsFileManager:
                 new_content = existing_lines.copy()
                 if entries:
                     new_content.append('')  # 空行分隔符
-                    new_content.append('# Docker Hoster 管理的条目')
+                    new_content.append(self.BEGIN_MARKER)
                     for entry in entries:
                         new_content.append(entry.to_hosts_line())
+                    new_content.append(self.END_MARKER)
 
                 # 3. 直接写入 hosts 文件
                 # 注意: bind mount 的文件不支持原子替换，需要直接覆盖写入
