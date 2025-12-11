@@ -1,1 +1,5 @@
+# Docker SDK for Python
 docker==7.1.0
+
+# Environment variable management (for .env file support)
+python-dotenv==1.0.1
