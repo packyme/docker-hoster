@@ -1,10 +1,8 @@
 """
-Hosts 文件管理模块，支持原子性更新
+Hosts 文件管理模块，支持 bind mount
 """
 
 import logging
-import os
-import tempfile
 import threading
 from pathlib import Path
 from typing import List
@@ -14,10 +12,10 @@ from hoster.models import HostEntry
 
 class HostsFileManager:
     """
-    管理 hosts 文件的原子性更新
+    管理 hosts 文件的更新（支持 Docker bind mount）
 
     线程安全的 hosts 文件读写操作。
-    使用原子性文件操作（临时文件 + 重命名）防止文件损坏。
+    使用直接写入方式以支持 bind mount 的文件。
     """
 
     MARKER = "# docker-hoster:"
@@ -64,7 +62,7 @@ class HostsFileManager:
 
     def update_hosts(self, entries: List[HostEntry]) -> None:
         """
-        原子性更新 hosts 文件
+        更新 hosts 文件（支持 bind mount）
 
         参数:
             entries: 要写入的 HostEntry 对象列表
@@ -86,26 +84,12 @@ class HostsFileManager:
                     for entry in entries:
                         new_content.append(entry.to_hosts_line())
 
-                # 3. 写入临时文件（同一目录）
-                temp_fd, temp_path = tempfile.mkstemp(
-                    dir=self.hosts_path.parent,
-                    prefix='.hosts.tmp.',
-                    text=True
-                )
+                # 3. 直接写入 hosts 文件
+                # 注意: bind mount 的文件不支持原子替换，需要直接覆盖写入
+                with open(self.hosts_path, 'w') as f:
+                    f.write('\n'.join(new_content) + '\n')
 
-                try:
-                    with os.fdopen(temp_fd, 'w') as f:
-                        f.write('\n'.join(new_content) + '\n')
-
-                    # 4. 原子性替换（同一文件系统内有效）
-                    os.replace(temp_path, self.hosts_path)
-                    self.logger.info(f"已更新 {len(entries)} 条 host 记录")
-
-                except Exception:
-                    # 出错时清理临时文件
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
-                    raise
+                self.logger.info(f"已更新 {len(entries)} 条 host 记录")
 
             except PermissionError:
                 self.logger.error(
@@ -127,24 +111,11 @@ class HostsFileManager:
             try:
                 existing_lines = self.read_existing_entries()
 
-                # 只写回非 docker-hoster 的行
-                temp_fd, temp_path = tempfile.mkstemp(
-                    dir=self.hosts_path.parent,
-                    prefix='.hosts.tmp.',
-                    text=True
-                )
+                # 直接写回非 docker-hoster 的行
+                with open(self.hosts_path, 'w') as f:
+                    f.write('\n'.join(existing_lines) + '\n')
 
-                try:
-                    with os.fdopen(temp_fd, 'w') as f:
-                        f.write('\n'.join(existing_lines) + '\n')
-
-                    os.replace(temp_path, self.hosts_path)
-                    self.logger.info("已移除所有 docker-hoster 条目")
-
-                except Exception:
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
-                    raise
+                self.logger.info("已移除所有 docker-hoster 条目")
 
             except Exception as e:
                 self.logger.error(f"清理 hosts 文件失败: {e}")

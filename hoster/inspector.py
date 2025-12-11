@@ -90,7 +90,7 @@ class ContainerInspector:
             # 3. 网络别名（来自所有网络）
             networks = container.attrs.get('NetworkSettings', {}).get('Networks', {})
             for network_data in networks.values():
-                aliases = network_data.get('Aliases', [])
+                aliases = network_data.get('Aliases') or []
                 for alias in aliases:
                     # 排除容器 ID（短格式）
                     if alias and alias != container.id[:12]:
