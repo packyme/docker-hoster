@@ -20,7 +20,7 @@ docker run -d \
   --name docker-hoster \
   --restart=unless-stopped \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
-  -v /etc/hosts:/etc/hosts \
+  -v /etc/hosts:/app/docker-hosts \
   docker-hoster
 ```
 
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /etc/hosts:/etc/hosts
+      - /etc/hosts:/app/docker-hosts
 ```
 
 ## 配置
@@ -44,11 +44,20 @@ services:
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `HOSTS_FILE` | `/etc/hosts` | hosts 文件路径 |
+| `HOSTS_FILE` | `/app/docker-hosts` | hosts 文件路径（容器内） |
 | `ENABLE_LABEL_FILTER` | `false` | 启用标签过滤 |
 | `LABEL_KEY` | `hoster.enable` | 过滤标签键 |
 | `LABEL_VALUE` | `true` | 过滤标签值 |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
+
+### 为什么使用 `/app/docker-hosts`？
+
+docker-hoster 将宿主机的 `/etc/hosts` 挂载到容器内的 `/app/docker-hosts` 路径，而不是直接挂载到容器的 `/etc/hosts`。
+
+**原因：**
+- Docker 会自动在容器的 `/etc/hosts` 中注入必要的条目（如 localhost、容器自己的 hostname）
+- 直接覆盖会导致这些条目丢失，可能影响容器内部的网络功能
+- 使用独立路径可以避免这个问题，同时仍然能够修改宿主机的 hosts 文件
 
 ### 标签过滤示例
 
@@ -60,7 +69,7 @@ docker run -d \
   --name docker-hoster \
   -e ENABLE_LABEL_FILTER=true \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
-  -v /etc/hosts:/etc/hosts \
+  -v /etc/hosts:/app/docker-hosts \
   docker-hoster
 
 # 启动需要管理的容器
@@ -70,9 +79,10 @@ docker run -d --label hoster.enable=true nginx
 ## Hosts 文件格式
 
 ```
-# Docker Hoster 管理的条目
-172.18.0.2	nginx	# docker-hoster: web-server
-172.18.0.2	web-server	# docker-hoster: web-server
+# Begin Docker Hoster
+172.18.0.2	nginx
+172.18.0.2	web-server
+# End Docker Hoster
 ```
 
 ## 本地开发
@@ -82,11 +92,18 @@ docker run -d --label hoster.enable=true nginx
 git clone <repo-url>
 cd docker-hoster
 
+# 创建虚拟环境（推荐）
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
 # 安装依赖
 pip install -r requirements.txt
 
-# 运行
-python main.py
+# 运行（需要 Docker 和 root 权限）
+sudo venv/bin/python main.py
+
+# 或使用环境变量指定测试用的 hosts 文件
+HOSTS_FILE=/tmp/test_hosts python main.py
 ```
 
 ## 项目结构
