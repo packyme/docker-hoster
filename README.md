@@ -143,10 +143,4 @@ A: 启用 `LOG_LEVEL=DEBUG` 查看详细日志
 - Docker SDK for Python 7.1.0
 - python-dotenv
 
-## 许可证
-
-MIT
-
----
-
 **构建使用：** [Docker SDK](https://docker-py.readthedocs.io/) | [python-dotenv](https://github.com/theskumar/python-dotenv)
