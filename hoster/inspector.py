@@ -91,7 +91,7 @@ class ContainerInspector:
         """
         提取容器的所有主机条目
 
-        支持多网络 - 为每个网络 IP 创建条目。
+        只使用第一个网络的 IP - 避免同一容器名出现多次。
 
         参数:
             container: Docker 容器对象
@@ -116,7 +116,7 @@ class ContainerInspector:
                 )
                 return []
 
-            # 遍历所有网络
+            # 获取所有网络
             networks = container.attrs.get('NetworkSettings', {}).get('Networks', {})
 
             if not networks:
@@ -125,6 +125,7 @@ class ContainerInspector:
                 )
                 return []
 
+            # 只使用第一个有效网络的 IP
             for network_name, network_data in networks.items():
                 ip_address = network_data.get('IPAddress')
 
@@ -134,7 +135,7 @@ class ContainerInspector:
                     )
                     continue
 
-                # 为每个主机名创建条目
+                # 为每个主机名创建条目（只使用第一个网络的 IP）
                 for hostname in hostnames:
                     entries.append(HostEntry(
                         ip_address=ip_address,
@@ -143,9 +144,12 @@ class ContainerInspector:
                     ))
 
                 self.logger.debug(
-                    f"容器 {container_name} 在 {network_name} 上: "
+                    f"容器 {container_name} 使用网络 {network_name}: "
                     f"{ip_address} -> {hostnames}"
                 )
+
+                # 找到第一个有效 IP 后就退出循环
+                break
 
         except KeyError as e:
             self.logger.error(
