@@ -1,0 +1,17 @@
+master:
+  push:
+    - services:
+        - docker
+      stages:
+        - name: set docker tags
+          script: |
+            BASE_IMAGE="${CNB_DOCKER_REGISTRY}/packyme/images/${CNB_REPO_NAME_LOWERCASE}"
+            echo "##[set-output image=${BASE_IMAGE}:latest]"
+          exports:
+            image: IMAGE_TAG
+
+        - name: docker build and push
+          script: |
+            docker buildx build \
+              -t ${IMAGE_TAG} \
+              --push .
