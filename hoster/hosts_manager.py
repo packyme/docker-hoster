@@ -108,7 +108,7 @@ class HostsFileManager:
                 with open(self.hosts_path, 'w') as f:
                     f.write('\n'.join(new_content) + '\n')
 
-                self.logger.info(f"已更新 {len(entries)} 条 host 记录")
+                self.logger.debug(f"已更新 {len(entries)} 条 host 记录到文件")
 
             except PermissionError:
                 self.logger.error(

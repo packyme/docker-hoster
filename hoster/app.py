@@ -43,6 +43,7 @@ class DockerHoster:
         self.config.validate()
 
         self.logger = self._setup_logging()
+        self._last_container_details = {}  # 追踪上一次的容器详情，用于检测变化
 
         # 初始化 Docker 客户端
         try:
@@ -132,11 +133,17 @@ class DockerHoster:
             self.logger.debug(f"发现 {len(containers)} 个运行中的容器")
 
             all_entries: List[HostEntry] = []
+            current_container_details = {}  # 记录当前容器的详细信息 {container_name: [hostnames]}
 
             for container in containers:
                 try:
                     entries = self.inspector.extract_host_entries(container)
                     all_entries.extend(entries)
+
+                    if entries:
+                        # 提取该容器的所有hostname
+                        hostnames = sorted(set(entry.hostname for entry in entries))
+                        current_container_details[container.name] = hostnames
 
                 except Exception as e:
                     # 隔离错误 - 单个容器失败不影响其他容器
@@ -149,13 +156,40 @@ class DockerHoster:
             # 更新 hosts 文件
             self.hosts_manager.update_hosts(all_entries)
 
-            if all_entries:
-                self.logger.info(
-                    f"成功更新 hosts 文件，添加了 {len(all_entries)} 条记录"
-                    f"（来自 {len(containers)} 个容器）"
-                )
+            # 判断是初始化还是事件触发
+            is_initial = not self._last_container_details
+
+            if is_initial:
+                # 初始化：显示所有容器的详细信息
+                if all_entries:
+                    self.logger.info(f"已添加 {len(all_entries)} 条主机记录:")
+                    for container_name, hostnames in sorted(current_container_details.items()):
+                        hostnames_str = ", ".join(hostnames)
+                        self.logger.info(f"  • {container_name}: {hostnames_str}")
+                else:
+                    self.logger.info("没有要添加的主机条目")
             else:
-                self.logger.info("没有要添加的主机条目")
+                # 事件触发：只显示变化的容器
+                added_containers = set(current_container_details.keys()) - set(self._last_container_details.keys())
+                removed_containers = set(self._last_container_details.keys()) - set(current_container_details.keys())
+
+                # 显示新增的容器
+                for container_name in sorted(added_containers):
+                    hostnames = current_container_details[container_name]
+                    hostnames_str = ", ".join(hostnames)
+                    self.logger.info(f"已添加主机记录: {container_name} → {hostnames_str}")
+
+                # 显示移除的容器
+                for container_name in sorted(removed_containers):
+                    hostnames = self._last_container_details[container_name]
+                    hostnames_str = ", ".join(hostnames)
+                    self.logger.info(f"已移除主机记录: {container_name} → {hostnames_str}")
+
+                # 显示当前总记录数
+                self.logger.info(f"当前共 {len(all_entries)} 条主机记录")
+
+            # 更新追踪状态
+            self._last_container_details = current_container_details
 
         except DockerException as e:
             self.logger.error(f"重建期间 Docker API 错误: {e}")

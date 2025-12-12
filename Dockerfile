@@ -19,9 +19,9 @@ ENV PYTHONUNBUFFERED=1
 # RUN useradd -m -u 1000 hoster && chown -R hoster:hoster /app
 # USER hoster
 
-# 健康检查（可选 - 检查进程是否正在运行）
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD pgrep -f "python.*main.py" || exit 1
+# 健康检查（检查 Python 进程是否正在运行）
+HEALTHCHECK --interval=60s --timeout=3s --start-period=10s --retries=3 \
+    CMD pidof python || exit 1
 
 # 运行应用
 CMD ["python", "-u", "main.py"]
