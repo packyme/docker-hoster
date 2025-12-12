@@ -29,7 +29,7 @@ docker run -d \
 ```yaml
 services:
   app:
-    image: docker.cnb.cool/packyme/images/docker-hoster:latest
+    image: docker-hoster:latest
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

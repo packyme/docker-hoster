@@ -69,6 +69,10 @@ class HostsFileManager:
                     # 保留非 docker-hoster 管理的行
                     existing_lines.append(stripped)
 
+            # 移除末尾的空行，避免累积
+            while existing_lines and not existing_lines[-1]:
+                existing_lines.pop()
+
         except PermissionError:
             self.logger.error(f"读取 hosts 文件权限被拒绝: {self.hosts_path}")
             raise
@@ -97,7 +101,9 @@ class HostsFileManager:
                 # 2. 构建新内容
                 new_content = existing_lines.copy()
                 if entries:
-                    new_content.append('')  # 空行分隔符
+                    # 只有在 existing_lines 不为空时才添加空行分隔符
+                    if new_content:
+                        new_content.append('')
                     new_content.append(self.BEGIN_MARKER)
                     for entry in entries:
                         new_content.append(entry.to_hosts_line())
@@ -106,7 +112,11 @@ class HostsFileManager:
                 # 3. 直接写入 hosts 文件
                 # 注意: bind mount 的文件不支持原子替换，需要直接覆盖写入
                 with open(self.hosts_path, 'w') as f:
-                    f.write('\n'.join(new_content) + '\n')
+                    if new_content:
+                        f.write('\n'.join(new_content) + '\n')
+                    else:
+                        # 如果内容为空，写入空文件
+                        f.write('')
 
                 self.logger.debug(f"已更新 {len(entries)} 条 host 记录到文件")
 
@@ -132,7 +142,11 @@ class HostsFileManager:
 
                 # 直接写回非 docker-hoster 的行
                 with open(self.hosts_path, 'w') as f:
-                    f.write('\n'.join(existing_lines) + '\n')
+                    if existing_lines:
+                        f.write('\n'.join(existing_lines) + '\n')
+                    else:
+                        # 如果没有内容，写入空文件
+                        f.write('')
 
                 self.logger.info("已移除所有 docker-hoster 条目")
 
