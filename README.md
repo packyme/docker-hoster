@@ -27,11 +27,9 @@ docker run -d \
 ### 使用 Docker Compose
 
 ```yaml
-version: '3.8'
-
 services:
-  hoster:
-    build: .
+  app:
+    image: docker.cnb.cool/packyme/images/docker-hoster:latest
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

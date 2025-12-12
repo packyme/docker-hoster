@@ -64,43 +64,22 @@ class ContainerInspector:
 
         包括:
         - 容器名
-        - Hostname 字段
-        - 网络别名（来自所有网络）
+
 
         参数:
             container: Docker 容器对象
 
         返回:
-            排序的唯一主机名列表
+            容器名列表
         """
         hostnames: Set[str] = set()
 
         try:
-            # 1. 容器名（去掉开头的 /）
+            # 只提取容器名（去掉开头的 /）
             container_name = container.name.lstrip('/')
             if container_name:
                 hostnames.add(container_name)
 
-            # 2. 容器配置中的 Hostname 字段（排除容器 ID）
-            config = container.attrs.get('Config', {})
-            hostname = config.get('Hostname')
-            # 只添加非容器 ID 的 hostname（Docker 默认使用容器 ID 短格式作为 hostname）
-            if hostname and hostname != container.id[:12]:
-                hostnames.add(hostname)
-
-            # 3. 网络别名（来自所有网络）
-            networks = container.attrs.get('NetworkSettings', {}).get('Networks', {})
-            for network_data in networks.values():
-                aliases = network_data.get('Aliases') or []
-                for alias in aliases:
-                    # 排除容器 ID（短格式）
-                    if alias and alias != container.id[:12]:
-                        hostnames.add(alias)
-
-        except KeyError as e:
-            self.logger.warning(
-                f"容器 {container.name} 缺少预期字段: {e}"
-            )
         except Exception as e:
             self.logger.error(
                 f"从容器 {container.name} 提取主机名时出错: {e}"
